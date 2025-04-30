@@ -13,4 +13,6 @@ API = http://0.0.0.0:3025/upload
 #carpetatemporal
 TEMP = D:\Trabajo_Grupo_Vega\Archivos_Pruebas\Proba_enviar_parquets
 
-
+#Hora de ejecucion (al iniciar el servicio solo se carga esta configuracion) --formato de 24 horas
+HOUR = 21
+MINUTE = 37

@@ -20,12 +20,26 @@ namespace service_sql_to_parquet_b2b
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            Dictionary<string, string> config;
+
+            try
+            {
+                string rutaBase = AppContext.BaseDirectory;
+                config = ReadConfiguration(Path.Combine(rutaBase, "config.txt"));
+                _logger.LogInformation("Configuración cargada correctamente.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al leer el archivo de configuración.");
+                return;
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 //Obtenemos Hora actual
                 DateTime today = DateTime.Now;
                 TimeSpan timer = today.TimeOfDay;
-                TimeSpan exec = new TimeSpan(15,23,0);
+                TimeSpan exec = new TimeSpan(int.Parse(config["HOUR"]), int.Parse(config["MINUTE"]),00);
                 if (timer.Hours == exec.Hours && timer.Minutes == exec.Minutes )
                 {
                     // Evitar doble ejecución en el mismo minuto
