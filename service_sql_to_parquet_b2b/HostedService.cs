@@ -114,7 +114,7 @@ namespace service_sql_to_parquet_b2b
                 {
                     try
                     {
-                        string dirInventory = _fileOperations.SaveChunkToParquet(chunk, "inventario", Path.Combine(config["TEMP"], "inventarios"), indexInventory);
+                        string dirInventory = _fileOperations.SaveChunkToParquet(chunk, "inventario", Path.Combine(config["TEMP"], "inventario"), indexInventory);
                         HttpResponseMessage response = await _fileOperations.UploadChunkToApi(dirInventory, apiUrl, chunksInventory.Count(), indexInventory, config["PERIOD"], "inventario");
                         string responseBody = await response.Content.ReadAsStringAsync();
 

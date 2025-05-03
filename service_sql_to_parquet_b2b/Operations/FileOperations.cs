@@ -3,6 +3,7 @@ using ParquetSharp;
 using System.Data;
 using System.Linq;
 using System.Net.Http.Headers;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace service_sql_to_parquet_b2b.Operations
 {
@@ -28,9 +29,61 @@ namespace service_sql_to_parquet_b2b.Operations
                     _logger.LogInformation("Directorio creado: {OutputPath}", outputPath);
                 }
 
-                var columns = table.Columns.Cast<DataColumn>()
-                    .Select(col => new ParquetSharp.Column(col.DataType, col.ColumnName))
-                    .ToArray();
+                ParquetSharp.Column[] columns = table.Columns.Cast<DataColumn>()
+                                .Select(col =>
+                                {
+                                    if (col.DataType == typeof(object))
+                                    {
+                                        // Detectar tipo real si es posible
+                                        var nonNull = table.AsEnumerable()
+                                            .Select(row => row[col])
+                                            .FirstOrDefault(val => val != DBNull.Value);
+
+                                        if (nonNull is Guid)
+                                        {
+                                            return new ParquetSharp.Column(typeof(Guid), col.ColumnName, LogicalType.Uuid());
+                                        }
+                                        //else if (nonNull is string s && DateTime.TryParse(s, out _))
+                                        //{
+                                        //    return new ParquetSharp.Column(typeof(DateTime), col.ColumnName, LogicalType.Timestamp(true, TimeUnit.Millis));
+                                        //}
+                                        else if (nonNull is byte[])
+                                        {
+                                            return new ParquetSharp.Column(typeof(byte[]), col.ColumnName, LogicalType.String());
+                                        }
+                                        else if (nonNull is string)
+                                        {
+                                            return new ParquetSharp.Column(typeof(string), col.ColumnName);
+                                        }
+                                        else if (nonNull is DateTimeOffset dto)
+                                        {
+                                            return new ParquetSharp.Column(typeof(DateTime), col.ColumnName, LogicalType.Timestamp(true, TimeUnit.Millis));
+                                        }
+                                        else
+                                        {
+                                            // Como último recurso, convertir a string
+                                            return new ParquetSharp.Column(typeof(string), col.ColumnName);
+                                        }
+                                    }
+                                    if (col.DataType == typeof(decimal))
+                                    {
+                                        // Ajusta la precisión y escala según tus datos
+                                        return new ParquetSharp.Column(typeof(decimal), col.ColumnName, LogicalType.Decimal(18,2));
+                                    }
+                                    else if (col.DataType == typeof(Guid))
+                                    {
+                                        return new ParquetSharp.Column(typeof(Guid), col.ColumnName, LogicalType.Uuid());
+                                    }
+                                    else if (col.DataType == typeof(DateTimeOffset))
+                                    {
+                                        return new ParquetSharp.Column(typeof(DateTime), col.ColumnName, LogicalType.Timestamp(true, TimeUnit.Millis));
+                                    }
+                                    else
+                                    {
+                                        return new ParquetSharp.Column(col.DataType, col.ColumnName);
+                                    }
+                                })
+                                .ToArray();
 
                 using (var fileWriter = new ParquetFileWriter(fullPath, columns))
                 {
@@ -39,7 +92,11 @@ namespace service_sql_to_parquet_b2b.Operations
                         foreach (DataColumn column in table.Columns)
                         {
                             System.Array data = table.Rows.Cast<DataRow>()
-                                .Select(row => row[column])
+                                .Select(row =>
+                                {
+                                    var value = row[column];
+                                    return value is DateTimeOffset dto ? dto.DateTime : value;
+                                })
                                 .ToArray();
 
                             WriteColumn(rg, column.DataType, data);
@@ -101,6 +158,27 @@ namespace service_sql_to_parquet_b2b.Operations
 
             if (underlyingType == typeof(string))
                 rg.NextColumn().LogicalWriter<string>().WriteBatch(data.Cast<string>().ToArray());
+            else if (underlyingType == typeof(bool))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<bool?>().WriteBatch(data.Cast<bool?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<bool>().WriteBatch(data.Cast<bool>().ToArray());
+            }
+            else if (underlyingType == typeof(byte))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<byte?>().WriteBatch(data.Cast<byte?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<byte>().WriteBatch(data.Cast<byte>().ToArray());
+            }
+            else if (underlyingType == typeof(short))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<short?>().WriteBatch(data.Cast<short?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<short>().WriteBatch(data.Cast<short>().ToArray());
+            }
             else if (underlyingType == typeof(int))
             {
                 if (Nullable.GetUnderlyingType(columnType) != null)
@@ -129,12 +207,81 @@ namespace service_sql_to_parquet_b2b.Operations
                 else
                     rg.NextColumn().LogicalWriter<decimal>().WriteBatch(data.Cast<decimal>().ToArray());
             }
+            else if (underlyingType == typeof(float))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<float?>().WriteBatch(data.Cast<float?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<float>().WriteBatch(data.Cast<float>().ToArray());
+            }
+            else if (underlyingType == typeof(Guid))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<Guid?>().WriteBatch(data.Cast<Guid?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<Guid>().WriteBatch(data.Cast<Guid>().ToArray());
+            }
+            else if (underlyingType == typeof(TimeSpan))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<TimeSpan?>().WriteBatch(data.Cast<TimeSpan?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<TimeSpan>().WriteBatch(data.Cast<TimeSpan>().ToArray());
+            }
+            else if (underlyingType == typeof(DateTimeOffset))
+            {
+                if (Nullable.GetUnderlyingType(columnType) != null)
+                    rg.NextColumn().LogicalWriter<DateTime?>().WriteBatch(data.Cast<DateTime?>().ToArray());
+                else
+                    rg.NextColumn().LogicalWriter<DateTime>().WriteBatch(data.Cast<DateTime>().ToArray());
+            }
             else if (underlyingType == typeof(DateTime))
             {
                 if (Nullable.GetUnderlyingType(columnType) != null)
                     rg.NextColumn().LogicalWriter<DateTime?>().WriteBatch(data.Cast<DateTime?>().ToArray());
                 else
                     rg.NextColumn().LogicalWriter<DateTime>().WriteBatch(data.Cast<DateTime>().ToArray());
+            }
+            else if (underlyingType == typeof(Byte[]))
+            {
+                    rg.NextColumn().LogicalWriter<Byte[]>().WriteBatch(data.Cast<Byte[]>().ToArray());
+            }
+            else if (underlyingType == typeof(object))
+            {
+                var nonNull = data.Cast<object?>().FirstOrDefault(x => x != null);
+                Console.Write($"nonull {nonNull}");
+                if (nonNull is Guid)
+                {
+                    rg.NextColumn().LogicalWriter<Guid>().WriteBatch(data.Cast<Guid>().ToArray());
+                }
+                else if (nonNull is string str && DateTime.TryParse(str, out var _))
+                {
+                    rg.NextColumn().LogicalWriter<DateTime>().WriteBatch(
+                        data.Cast<object?>()
+                            .Select(x => x == null ? default : DateTime.Parse(x.ToString()))
+                            .ToArray()
+                    );
+                }
+                else if (nonNull is string)
+                {
+                    rg.NextColumn().LogicalWriter<string>().WriteBatch(data.Cast<string>().ToArray());
+                }
+                else if (nonNull is byte[])
+                {
+                    rg.NextColumn().LogicalWriter<byte[]>().WriteBatch(data.Cast<byte[]>().ToArray());
+                }
+                else if (nonNull is DateTime)
+                {
+                    Console.Write($"nonull {nonNull}");
+                    rg.NextColumn().LogicalWriter<DateTime>().WriteBatch(data.Cast<DateTime>().ToArray());
+                }
+                else
+                {
+                    // Como fallback, lo grabamos como string
+                    rg.NextColumn().LogicalWriter<string>().WriteBatch(
+                        data.Cast<object?>().Select(x => x?.ToString()).ToArray()
+                    );
+                }
             }
             else
             {

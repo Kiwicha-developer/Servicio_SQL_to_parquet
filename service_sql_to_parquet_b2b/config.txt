@@ -6,7 +6,7 @@ PASS = sqlserver
 
 #Configuración de archivos Parquet
 #PERIOD = auto => fecha actual
-PERIOD = 202304
+PERIOD = auto
 CHUNKSIZE = 10
 API = http://0.0.0.0:3025/upload
 
@@ -14,5 +14,5 @@ API = http://0.0.0.0:3025/upload
 TEMP = D:\Trabajo_Grupo_Vega\Archivos_Pruebas\Proba_enviar_parquets
 
 #Hora de ejecucion (al iniciar el servicio solo se carga esta configuracion) --formato de 24 horas
-HOUR = 21
-MINUTE = 37
+HOUR = 10
+MINUTE = 58
